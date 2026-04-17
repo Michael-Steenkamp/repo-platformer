@@ -20,7 +20,11 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float stopVelocityMultiplier = 0.5f;
     [SerializeField] private float jumpForce = 5f;
     [SerializeField] private float jumpDuration = 1f;
+    [SerializeField] private float wallJumpBoostMultiplier = 5f;
+    [SerializeField] private float wallJumpBoostInterval = 1f;
+    [SerializeField] private float headHitMultiplyer = 2f;
     private float jumpEndTime;
+    private float wallJumpBoostEndTime;
     private Vector2 moveDirection;
 
     [Header("States")]
@@ -73,10 +77,26 @@ public class PlayerController : MonoBehaviour
             animator.SetBool("IsGrounded", isGrounded);
         }
     }
+    [SerializeField] private bool isOnWall = false;
+    private bool IsOnWall
+    {
+        get { return isOnWall; }
+        set
+        {
+            isOnWall = value;
+        }
+    }
 
-
-    private Vector2 origin;
-    private RaycastHit2D hit;
+    [SerializeField] private LayerMask layerMask;
+    private const float raycastDistance = 0.1f;
+    private Vector2 originBottom;
+    private RaycastHit2D hitBottom;
+    private Vector2 originTop;
+    private RaycastHit2D hitTop;
+    private Vector2 originLeft;
+    private RaycastHit2D hitLeft;
+    private Vector2 originRight;
+    private RaycastHit2D hitRight;
 
     private void Awake()
     {
@@ -99,12 +119,14 @@ public class PlayerController : MonoBehaviour
     private void LocamotionHandler()
     {
         // Walking
-        rb.linearVelocityX = (IsWalking) ? moveDirection.x : rb.linearVelocityX;
+        rb.linearVelocityX = (IsWalking) ? moveDirection.x : rb.linearVelocityX * stopVelocityMultiplier;
+        animator.SetFloat("Speed", Mathf.Abs(rb.linearVelocity.x));
+        animator.SetFloat("Height", Math.Abs(rb.linearVelocity.y));
 
         // Jumping
         if (IsJumping && jumpEndTime >= Time.time)
         {
-            rb.linearVelocityY = jumpForce;
+            if (IsGrounded) { rb.linearVelocityY = jumpForce; }
         }
         else
         {
@@ -114,13 +136,80 @@ public class PlayerController : MonoBehaviour
 
         // Falling & Grounded
         IsFalling = rb.linearVelocity.y < 0 && !IsGrounded;
-        IsGrounded = hit.collider != null;
+        IsGrounded = hitBottom.collider != null;
+
+
+        // Wall Jumping
+        if (hitLeft.collider != null || hitRight.collider != null) 
+        {
+            if (!IsOnWall)
+            {
+                wallJumpBoostEndTime = Time.time + wallJumpBoostInterval;
+            }
+            IsOnWall = true; 
+        }
+        else { IsOnWall = false; }
+        Debug.Log("Within Interval: " + (wallJumpBoostEndTime >= Time.time));
+        Debug.Log(wallJumpBoostEndTime + " : " + Time.time);
+        if (hitLeft.collider != null && IsJumping)
+        {
+            if (moveDirection.x <= 0f) { return; }
+            rb.linearVelocity = (wallJumpBoostEndTime >= Time.time) ? new Vector2(walkSpeed, jumpForce) * wallJumpBoostMultiplier : new Vector2(walkSpeed, jumpForce);
+        }
+        if (hitRight.collider != null && IsJumping)
+        {
+            if (moveDirection.x >= 0f) { return; }
+            rb.linearVelocity = (wallJumpBoostEndTime >= Time.time) ? new Vector2(-walkSpeed, jumpForce) * wallJumpBoostMultiplier : new Vector2(-walkSpeed, jumpForce);
+        }
+
+        // Head Bumping
+        if (hitTop.collider != null & IsJumping)
+        {
+            if(rb.linearVelocityX == 0f) { return; }
+            rb.linearVelocityX *= headHitMultiplyer;
+        }
     }
 
     void FixedUpdate()
     {
-        origin = new Vector2(transform.position.x, transform.position.y - collider.bounds.extents.y - .01f);
-        hit = Physics2D.Raycast(origin, Vector2.down, .01f);
+        RayCast();
+    }
+
+    private void OnDrawGizmos()
+    {
+        Gizmos.color = Color.red;
+        
+        // Bottom
+        originBottom = new Vector2(transform.position.x, transform.position.y - sprite.bounds.extents.y);
+        Gizmos.DrawLine(originBottom, originBottom + Vector2.down * raycastDistance);
+
+        // Top
+        originTop = new Vector2(transform.position.x, transform.position.y + sprite.bounds.extents.y);
+        Gizmos.DrawLine(originTop, originTop + Vector2.up * raycastDistance);
+        // Left
+        originLeft = new Vector2(transform.position.x - sprite.bounds.extents.x, transform.position.y);
+        Gizmos.DrawLine(originLeft, originLeft + Vector2.left * raycastDistance);
+        
+        // Right
+        originRight = new Vector2(transform.position.x + sprite.bounds.extents.x, transform.position.y);
+        Gizmos.DrawLine(originRight, originRight + Vector2.right * raycastDistance);
+    }
+    private void RayCast()
+    {
+        // Bottom
+        originBottom = new Vector2(transform.position.x, transform.position.y - sprite.bounds.extents.y);
+        hitBottom = Physics2D.Raycast(originBottom, Vector2.down, raycastDistance, layerMask);
+
+        // Top
+        originTop = new Vector2(transform.position.x, transform.position.y + sprite.bounds.extents.y);
+        hitTop = Physics2D.Raycast(originTop, Vector2.up, raycastDistance, layerMask);
+        // Left
+        originLeft = new Vector2(transform.position.x - sprite.bounds.extents.x, transform.position.y);
+        hitLeft = Physics2D.Raycast(originLeft, Vector2.left, raycastDistance, layerMask);
+
+        // Right
+        originRight = new Vector2(transform.position.x + sprite.bounds.extents.x, transform.position.y);
+        hitRight = Physics2D.Raycast(originRight, Vector2.right, raycastDistance, layerMask);
     }
 
     public void OnMove(InputAction.CallbackContext context)
@@ -144,7 +233,7 @@ public class PlayerController : MonoBehaviour
 
     public void OnJump(InputAction.CallbackContext context)
     {
-        if (context.performed && IsGrounded)
+        if (context.performed)
         {
             IsJumping = true;
             Debug.Log("Started jumping");

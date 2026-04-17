@@ -15,7 +15,7 @@ GameObject:
   - component: {fileID: 5961798847010444152}
   - component: {fileID: 4946772280458286863}
   - component: {fileID: 5666581384203049283}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: Player_Beige
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -157,8 +157,8 @@ CapsuleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: -0.00000011920929, y: 0.016609073}
-  m_Size: {x: 0.65074754, y: 0.79685855}
+  m_Offset: {x: 0.00068736076, y: -0.0080497265}
+  m_Size: {x: 0.5393723, y: 0.7169256}
   m_Direction: 0
 --- !u!114 &5961798847010444152
 MonoBehaviour:
@@ -181,6 +181,9 @@ MonoBehaviour:
   isFalling: 0
   isWalking: 0
   isGrounded: 1
+  layerMask:
+    serializedVersion: 2
+    m_Bits: 55
 --- !u!114 &4946772280458286863
 MonoBehaviour:
   m_ObjectHideFlags: 0
